@@ -17,7 +17,6 @@ function App() {
 
     // Esta funcion es la que maneja toda la logica que pasa cuando un evento pasa en el DragDropContext
     function handleDragEnd(result) {
-
         const { destination, source, draggableId } = result
         // console.log('destino', destination, 'origen', source, 'elemento a insertar', draggableId)
 
@@ -34,97 +33,20 @@ function App() {
             return
         }
 
-        // Si movemos elementos de una lista a otra
-        if (destination.droppableId !== source.droppableId) {
-            // console.log('Estado anterior: ', state)
-
-            // console.log('Esta condicion sucede porque ahora me estoy moviendo entre columnas')
-
-            const sourceColumn = state.columns[source.droppableId]
-            const destinationColumn = state.columns[destination.droppableId]
-
-            // console.log(sourceColumn, destinationColumn)
-
-            // Voy a crear una nueva lista para poder modificar la columna del origen
-
-            const editArraySourceColumn = Array.from(sourceColumn.taskIds)
-            const elementToInsert = editArraySourceColumn.splice(
-                source.index,
-                1
-            )[0]
-
-            const editArrayDestinationColumn = Array.from(
-                destinationColumn.taskIds
-            )
-            editArrayDestinationColumn.splice(
-                destination.index,
-                0,
-                elementToInsert
-            )
-
-            // Ya que hice toda la gestion, ahora ocupo copiar las modificaciones y actualizar el estado
-
-            const newSourceColumn = {
-                ...sourceColumn,
-                taskIds: editArraySourceColumn,
-            }
-
-            const newDestinationColumn = {
-                ...destinationColumn,
-                taskIds: editArrayDestinationColumn,
-            }
-
-            // console.log('Nuevas estructuras:', newSourceColumn, newDestinationColumn)
-
-            const newState = {
-                ...state,
-                columns: {
-                    ...state.columns,
-                    [newSourceColumn.id]: newSourceColumn,
-                    [newDestinationColumn.id]: newDestinationColumn,
-                },
-            }
-
-            // console.log('Nuevo estado:', newState)
-
-            setState(newState)
-        }
-
         // Si la lista cambia de orden
         if (destination.droppableId === source.droppableId) {
-            // Consigo la columna que esta 'sufriendo' las modificaciones
-            const columnModified = state.columns[source.droppableId]
+            modifySameColumn({
+                destination,
+                source,
+                draggableId,
+                state,
+                setState,
+            })
+        }
 
-            // copio su array de tareas, asi no muto el original
-            const newTaskIdsArr = Array.from(columnModified.taskIds)
-
-            // Ya que lo tengo, entonces tengo que modificar 2 posiciones:
-            // 1. El origen
-            // 2. El destino
-
-            // console.log('array antes:', newTaskIdsArr)
-            newTaskIdsArr.splice(source.index, 1) // eliminar el index que se esta moviendo
-            // console.log('array durante:', newTaskIdsArr)
-            newTaskIdsArr.splice(destination.index, 0, draggableId) // reemplazarlo en el index que se esta moviendo
-            // console.log('array despues:', newTaskIdsArr, 'draggableId: ', draggableId)
-
-            // Bueno ya que movimos de lugar el objeto, lo que sigue es crear una nueva columna con las modificaciones
-            const newColumn = {
-                ...columnModified, // le copiamos todas las modificaciones y lo que ya tenia antes
-                taskIds: newTaskIdsArr, // le actualizamos el orden de las tareas, que fue lo que hicimos hace rato
-            }
-
-            // Ahora que ya tenemos la columna nueva, con las modificaciones adecuadas
-            // Pasamos a modificar el estado para que se mire reflejado
-            const newState = {
-                ...state, // Siempre conservar la informacion pasada
-                columns: {
-                    ...state.columns, // conservamos el orden de las otras columnas
-                    [newColumn.id]: newColumn, // y agregamos lo nuevo
-                },
-            }
-
-            setState(newState) //actualizamos el estado para que el usuario pueda ver la modificacion
+        // Si movemos elementos de una lista a otra
+        if (destination.droppableId !== source.droppableId) {
+            modifyTwoColumns({ destination, source, state, setState })
         }
     }
 
@@ -158,6 +80,94 @@ function App() {
 }
 
 ReactDOM.render(<App />, document.getElementById('root'))
+
+function modifySameColumn({
+    destination,
+    source,
+    draggableId,
+    state,
+    setState,
+}) {
+    // Consigo la columna que esta 'sufriendo' las modificaciones
+    const columnModified = state.columns[source.droppableId]
+
+    // copio su array de tareas, asi no muto el original
+    const newTaskIdsArr = Array.from(columnModified.taskIds)
+
+    // Ya que lo tengo, entonces tengo que modificar 2 posiciones:
+    // 1. El origen
+    // 2. El destino
+
+    // console.log('array antes:', newTaskIdsArr)
+    newTaskIdsArr.splice(source.index, 1) // eliminar el index que se esta moviendo
+    // console.log('array durante:', newTaskIdsArr)
+    newTaskIdsArr.splice(destination.index, 0, draggableId) // reemplazarlo en el index que se esta moviendo
+    // console.log('array despues:', newTaskIdsArr, 'draggableId: ', draggableId)
+
+    // Bueno ya que movimos de lugar el objeto, lo que sigue es crear una nueva columna con las modificaciones
+    const newColumn = {
+        ...columnModified, // le copiamos todas las modificaciones y lo que ya tenia antes
+        taskIds: newTaskIdsArr, // le actualizamos el orden de las tareas, que fue lo que hicimos hace rato
+    }
+
+    // Ahora que ya tenemos la columna nueva, con las modificaciones adecuadas
+    // Pasamos a modificar el estado para que se mire reflejado
+    const newState = {
+        ...state, // Siempre conservar la informacion pasada
+        columns: {
+            ...state.columns, // conservamos el orden de las otras columnas
+            [newColumn.id]: newColumn, // y agregamos lo nuevo
+        },
+    }
+
+    setState(newState) //actualizamos el estado para que el usuario pueda ver la modificacion
+}
+
+function modifyTwoColumns({ destination, source, state, setState }) {
+    // console.log('Estado anterior: ', state)
+
+    // console.log('Esta condicion sucede porque ahora me estoy moviendo entre columnas')
+
+    const sourceColumn = state.columns[source.droppableId]
+    const destinationColumn = state.columns[destination.droppableId]
+
+    // console.log(sourceColumn, destinationColumn)
+
+    // Voy a crear una nueva lista para poder modificar la columna del origen
+
+    const editArraySourceColumn = Array.from(sourceColumn.taskIds)
+    const elementToInsert = editArraySourceColumn.splice(source.index, 1)[0]
+
+    const editArrayDestinationColumn = Array.from(destinationColumn.taskIds)
+    editArrayDestinationColumn.splice(destination.index, 0, elementToInsert)
+
+    // Ya que hice toda la gestion, ahora ocupo copiar las modificaciones y actualizar el estado
+
+    const newSourceColumn = {
+        ...sourceColumn,
+        taskIds: editArraySourceColumn,
+    }
+
+    const newDestinationColumn = {
+        ...destinationColumn,
+        taskIds: editArrayDestinationColumn,
+    }
+
+    // console.log('Nuevas estructuras:', newSourceColumn, newDestinationColumn)
+
+    const newState = {
+        ...state,
+        columns: {
+            ...state.columns,
+            [newSourceColumn.id]: newSourceColumn,
+            [newDestinationColumn.id]: newDestinationColumn,
+        },
+    }
+
+    // console.log('Nuevo estado:', newState)
+
+    setState(newState)
+}
 
 // Bueno ahora si vamos con la parte de react-beautiful-dnd
 // ahorita vamos a hacer que el orden de las tareas sea dinamico, es decir, que se pueda cambiar el orden de las tareas
