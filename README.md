@@ -1,3 +1,5 @@
+# Bueno mira, si ocupas un Kan ban, aca tenes uno y hasta comentado. Asi que agradece mamon
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
