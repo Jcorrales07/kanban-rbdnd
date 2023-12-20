@@ -89,6 +89,7 @@ function App() {
                 </Droppable>
                 <CreateColumn>
                     <Input
+                        id='listInput'
                         placeholder="New List..."
                         onChange={(e) => {
                             setNewListName(e.target.value)
@@ -118,6 +119,8 @@ function App() {
 
                             setState(newState)
                             setNewListName('')
+                            document.getElementById('listInput').value = ''
+
                         }}
                     >
                         Create

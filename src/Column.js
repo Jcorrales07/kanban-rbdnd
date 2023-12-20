@@ -114,6 +114,7 @@ function Column({ column, tasks, index, state, setState }) {
                                 {provided.placeholder}
                                 <CreateTask>
                                     <Input
+                                        id='taskInput'
                                         placeholder="New Task..."
                                         onChange={(e) => {
                                             setNewTask(e.target.value)
@@ -147,6 +148,10 @@ function Column({ column, tasks, index, state, setState }) {
                                             console.log(newState, column)
 
                                             setState(newState)
+                                            setNewTask('')
+                                            document.getElementById(
+                                                'taskInput'
+                                            ).value = ''
                                         }}
                                     >
                                         Create
