@@ -1,12 +1,14 @@
 import styled from 'styled-components'
 import Task from './Task'
 import { Draggable, Droppable } from 'react-beautiful-dnd'
+import { useState } from 'react'
 
 const Container = styled.div`
     margin: 8px;
     border: 1px solid lightgrey;
-    border-radius: 2px;
+    border-radius: 4px;
     width: 220px;
+    height: 100%;
 `
 
 const Handle = styled.div`
@@ -18,71 +20,181 @@ const Handle = styled.div`
     cursor: grab;
 `
 
-const Title = styled.h3`
-    padding: 8px;
-`
-const TaskList = styled.div`
-    padding: 8px;
+const TitleInput = styled.input`
+    padding: 10px;
+    font-size: inherit;
+    border: none;
+    background-color: transparent;
+    outline: none;
+    width: 75%;
 `
 
-function Column({ column, tasks, index }) {
+const TaskList = styled.div`
+    padding: 8px;
+    transition: background-color 0.2s ease;
+    background-color: ${(props) =>
+        props.isDraggingOver ? 'lightblue' : 'white'};
+`
+
+const CreateTask = styled.div`
+    padding: 8px;
+    border: 1px solid lightgrey;
+    border-radius: 4px;
+    height: 100%;
+    display: flex;
+`
+
+const Input = styled.input`
+    // padding: 10px;
+    font-size: inherit;
+    border: none;
+    background-color: transparent;
+    outline: none;
+    width: 75%;
+`
+
+const Button = styled.button`
+    cursor: pointer;
+`
+
+function Column({ column, tasks, index, state, setState }) {
+    const [title, setTitle] = useState(column.title)
+    const [newTask, setNewTask] = useState('')
+
     return (
-        // <Draggable draggableId={column.id} index={index}> //Intente hacerlo draggable pero no me funciono
-            // {(provided) => (
-                <Container
-                    // {...provided.draggableProps}
-                    // {...provided.dragHandleProps}
-                    // ref={provided.innerRef}
-                >
+        <Draggable draggableId={column.id} index={index}>
+            {(provided) => (
+                <Container {...provided.draggableProps} ref={provided.innerRef}>
                     <div
                         style={{
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'space-between',
+                            backgroundColor: '#aeaeaeae',
                         }}
                     >
-                        <Title>{column.title}</Title>
-                        <Handle></Handle>
+                        <TitleInput
+                            value={title}
+                            onChange={(e) => {
+                                setTitle(e.target.value)
+                            }}
+                            onBlur={() => {
+                                // Update the state with the new title
+                                setState((prevState) => ({
+                                    ...prevState,
+                                    columns: {
+                                        ...prevState.columns,
+                                        [column.id]: {
+                                            ...prevState.columns[column.id],
+                                            title: title,
+                                        },
+                                    },
+                                }))
+                            }}
+                        />
+                        <Handle {...provided.dragHandleProps} />
                     </div>
 
-                    <Droppable droppableId={column.id}>
-                        {/* Ocupa que su hijo sea una funcion que devuelva un componente de React. provided es un objeto que trae propiedades para darle funcionalidades de dropeo al componente */}
-
-                        {(provided) => (
+                    <Droppable droppableId={column.id} type="task">
+                        {(provided, snapshot) => (
                             <TaskList
-                                /* innerRef sirve para que se pueda llevar un control, es como el key */
                                 ref={provided.innerRef}
-                                /* Le estamos dando la habilidad de que se pueda dropear */
                                 {...provided.droppableProps}
+                                isDraggingOver={snapshot.isDraggingOver}
                             >
                                 {tasks.map((task, i) => (
                                     <Task
                                         key={task.id}
                                         task={task}
                                         index={i}
-                                    ></Task>
+                                        state={state}
+                                        setState={setState}
+                                    />
                                 ))}
-
-                                {/* Esto se ocupa para que halla un pequeño espacio para que se puedan dropear draggables, aumenta el tamaño, tiene que ser olbigatoriamente un hijo del elemento que estas convirtiendo en un Droppable */}
-
                                 {provided.placeholder}
+                                <CreateTask>
+                                    <Input
+                                        placeholder="New Task..."
+                                        onChange={(e) => {
+                                            setNewTask(e.target.value)
+                                        }}
+                                    />
+                                    {/* La del chat, pero lo hice sin chat jeje */}
+                                    <Button
+                                        onClick={(e) => {
+                                            if (newTask === '') return
+
+                                            const i =
+                                                Object.keys(state.tasks)
+                                                    .length + 1
+                                            const taskId = `task-${i}`
+
+                                            const newTaskObj = {
+                                                id: taskId,
+                                                content: newTask,
+                                            }
+
+                                            const newState = {
+                                                ...state,
+                                                tasks: {
+                                                    ...state.tasks,
+                                                    [taskId]: newTaskObj,
+                                                },
+                                            }
+
+                                            column.taskIds.push(taskId)
+
+                                            console.log(newState, column)
+
+                                            setState(newState)
+                                        }}
+                                    >
+                                        Create
+                                    </Button>
+                                </CreateTask>
                             </TaskList>
                         )}
                     </Droppable>
                 </Container>
             )}
-        // </Draggable>
-    // )
-// }
+        </Draggable>
+    )
+}
 
 export default Column
 
-// La columna, como va a ser el lugar en donde se van a dropear las tareas, va a ser un Droppable
+{
+    /**
 
-// Entonces para que funcione la zona dropeable, la tenemos que envolver con el componente <Droppable />
+Mi version
 
-// Droppable tiene un prop obligatorio que es droppableId, que es un string que identifica a un droppable dentro de un DragDropContext. Osea todo elemento dropeable tiene que tener un id unico dentro de un DragDropContext, asi si tenemos multiples, ya sabemos cual es cual
+<Button
+    onClick={(e) => {
+        if (newTask === '') return
 
-// El elemento hijo de Droppable tiene que ser una funcion que retorne un componente de React, por que? Porque asi React no tiene que hacer estructuras nuevas sino que se aferra a la estructura que ya definiste en el codigo.
+        const i =
+            Object.keys(state.tasks).length + 1
+            const taskId = `task-${i}`
 
-// provided tiene propiedades, una de ellas es droppableProps, que son las propiedades que tenes que pasarle al elemento que va a ser dropeable, en este caso, el <TaskList />
+                                            
+
+                                            const newState = {
+                                                ...state,
+                                                tasks: {
+                                                    ...state.tasks,
+                                                    [taskId]: newTaskObj,
+                                                },
+                                            }
+
+                                            column.taskIds.push(taskId)
+
+                                            console.log(newState, column)
+
+                                            setState(newState)
+                                        }}
+                                    >
+                                        Create
+                                    </Button>
+
+*/
+}

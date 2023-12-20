@@ -3,21 +3,134 @@ import ReactDOM from 'react-dom'
 import styled from 'styled-components'
 import '@atlaskit/css-reset'
 
-import { DragDropContext } from 'react-beautiful-dnd'
+import { DragDropContext, Droppable } from 'react-beautiful-dnd'
 
 import initialData from './initial-data'
 import Column from './Column'
 
+const MainContainer = styled.div`
+    display: flex;
+`
+
 const Container = styled.div`
     display: flex;
+    width: min-content;
+    // border: 1px solid black;
+    height: 100%;
+`
+
+const CreateColumn = styled.div`
+    margin: 8px;
+    border: 1px solid lightgrey;
+    border-radius: 4px;
+    // width: 220px;
+    height: 100%;
+    padding: 8px;
+    display: flex;
+`
+
+const Input = styled.input`
+    // padding: 10px;
+    font-size: inherit;
+    border: none;
+    background-color: transparent;
+    outline: none;
+    width: 75%;
+`
+
+const Button = styled.button`
+    cursor: pointer;
 `
 
 function App() {
     const [state, setState] = useState(initialData)
+    const [newListName, setNewListName] = useState('')
+
+    // Column order va a ser el orden en como se van a mostrar las columnas
+    return (
+        <DragDropContext onDragEnd={handleDragEnd}>
+            <MainContainer>
+                <Droppable
+                    droppableId="all-columns"
+                    direction="horizontal"
+                    type="column"
+                >
+                    {(provided) => (
+                        <Container
+                            {...provided.droppableProps}
+                            ref={provided.innerRef}
+                        >
+                            {state.columnOrder.map((columnId, index) => {
+                                const column = state.columns[columnId] // columnId es como se llama la columna, como es un objeto, por eso lo accedemos asi. Tomar en cuenta de que NO es un iterador numerico
+
+                                // Para cada columna, vamos a iterar las tareas que tiene, en el orden que estan
+                                const tasks = column.taskIds.map(
+                                    (taskId) => state.tasks[taskId]
+                                )
+
+                                // React va a necesitar una key para cada columna, para saber cual es cual
+                                // column seria la informacion de la columna
+                                // serian las tareas que tiene la columna
+                                return (
+                                    <Column
+                                        key={column.id}
+                                        column={column}
+                                        tasks={tasks}
+                                        index={index}
+                                        state={state}
+                                        setState={setState}
+                                    />
+                                )
+                            })}
+
+                            {provided.placeholder}
+                        </Container>
+                    )}
+                </Droppable>
+                <CreateColumn>
+                    <Input
+                        placeholder="New List..."
+                        onChange={(e) => {
+                            setNewListName(e.target.value)
+                        }}
+                    />
+                    <Button
+                        onClick={(e) => {
+                            if (newListName === '') return
+
+                            const i = state.columnOrder.length + 1
+                            const columnId = `column-${i}`
+
+                            const newColumn = {
+                                id: columnId,
+                                title: newListName,
+                                taskIds: [],
+                            }
+
+                            const newState = {
+                                ...state,
+                                columns: {
+                                    ...state.columns,
+                                    [columnId]: newColumn,
+                                },
+                                columnOrder: [...state.columnOrder, columnId],
+                            }
+
+                            setState(newState)
+                            setNewListName('')
+                        }}
+                    >
+                        Create
+                    </Button>
+                </CreateColumn>
+            </MainContainer>
+        </DragDropContext>
+    )
 
     // Esta funcion es la que maneja toda la logica que pasa cuando un evento pasa en el DragDropContext
     function handleDragEnd(result) {
-        const { destination, source, draggableId } = result
+        const { destination, source, draggableId, type } = result
+        console.log(result, state)
         // console.log('destino', destination, 'origen', source, 'elemento a insertar', draggableId)
 
         // Si no hay destino, entonces no hacemos nada
@@ -33,141 +146,122 @@ function App() {
             return
         }
 
+        // Si cambiamos el orden de las columnas de tareas
+        if (type === 'column') {
+            const newColumnOrder = Array.from(state.columnOrder)
+            newColumnOrder.splice(source.index, 1)
+            newColumnOrder.splice(destination.index, 0, draggableId)
+
+            const newState = {
+                ...state,
+                columnOrder: newColumnOrder,
+            }
+
+            setState(newState)
+            return
+        }
+
         // Si la lista cambia de orden
         if (destination.droppableId === source.droppableId) {
             modifySameColumn({
                 destination,
                 source,
                 draggableId,
-                state,
-                setState,
             })
+            return
         }
 
         // Si movemos elementos de una lista a otra
         if (destination.droppableId !== source.droppableId) {
-            modifyTwoColumns({ destination, source, state, setState })
+            modifyTwoColumns({ destination, source })
+            return
         }
     }
 
-    // Column order va a ser el orden en como se van a mostrar las columnas
-    return (
-        <DragDropContext onDragEnd={handleDragEnd}>
-            <Container>
-                {state.columnOrder.map((columnId, index) => {
-                    const column = state.columns[columnId] // columnId es como se llama la columna, como es un objeto, por eso lo accedemos asi. Tomar en cuenta de que NO es un iterador numerico
+    function modifySameColumn({ destination, source, draggableId }) {
+        // Consigo la columna que esta 'sufriendo' las modificaciones
+        const columnModified = state.columns[source.droppableId]
 
-                    // Para cada columna, vamos a iterar las tareas que tiene, en el orden que estan
-                    const tasks = column.taskIds.map(
-                        (taskId) => state.tasks[taskId]
-                    )
+        // copio su array de tareas, asi no muto el original
+        const newTaskIdsArr = Array.from(columnModified.taskIds)
 
-                    // React va a necesitar una key para cada columna, para saber cual es cual
-                    // column seria la informacion de la columna
-                    // serian las tareas que tiene la columna
-                    return (
-                        <Column
-                            key={column.id}
-                            column={column}
-                            tasks={tasks}
-                            index={index}
-                        />
-                    )
-                })}
-            </Container>
-        </DragDropContext>
-    )
+        // Ya que lo tengo, entonces tengo que modificar 2 posiciones:
+        // 1. El origen
+        // 2. El destino
+
+        // console.log('array antes:', newTaskIdsArr)
+        newTaskIdsArr.splice(source.index, 1) // eliminar el index que se esta moviendo
+        // console.log('array durante:', newTaskIdsArr)
+        newTaskIdsArr.splice(destination.index, 0, draggableId) // reemplazarlo en el index que se esta moviendo
+        // console.log('array despues:', newTaskIdsArr, 'draggableId: ', draggableId)
+
+        // Bueno ya que movimos de lugar el objeto, lo que sigue es crear una nueva columna con las modificaciones
+        const newColumn = {
+            ...columnModified, // le copiamos todas las modificaciones y lo que ya tenia antes
+            taskIds: newTaskIdsArr, // le actualizamos el orden de las tareas, que fue lo que hicimos hace rato
+        }
+
+        // Ahora que ya tenemos la columna nueva, con las modificaciones adecuadas
+        // Pasamos a modificar el estado para que se mire reflejado
+        const newState = {
+            ...state, // Siempre conservar la informacion pasada
+            columns: {
+                ...state.columns, // conservamos el orden de las otras columnas
+                [newColumn.id]: newColumn, // y agregamos lo nuevo
+            },
+        }
+
+        setState(newState) //actualizamos el estado para que el usuario pueda ver la modificacion
+    }
+
+    function modifyTwoColumns({ destination, source }) {
+        // console.log('Estado anterior: ', state)
+
+        // console.log('Esta condicion sucede porque ahora me estoy moviendo entre columnas')
+
+        const sourceColumn = state.columns[source.droppableId]
+        const destinationColumn = state.columns[destination.droppableId]
+
+        // console.log(sourceColumn, destinationColumn)
+
+        // Voy a crear una nueva lista para poder modificar la columna del origen
+
+        const editArraySourceColumn = Array.from(sourceColumn.taskIds)
+        const elementToInsert = editArraySourceColumn.splice(source.index, 1)[0]
+
+        const editArrayDestinationColumn = Array.from(destinationColumn.taskIds)
+        editArrayDestinationColumn.splice(destination.index, 0, elementToInsert)
+
+        // Ya que hice toda la gestion, ahora ocupo copiar las modificaciones y actualizar el estado
+
+        const newSourceColumn = {
+            ...sourceColumn,
+            taskIds: editArraySourceColumn,
+        }
+
+        const newDestinationColumn = {
+            ...destinationColumn,
+            taskIds: editArrayDestinationColumn,
+        }
+
+        // console.log('Nuevas estructuras:', newSourceColumn, newDestinationColumn)
+
+        const newState = {
+            ...state,
+            columns: {
+                ...state.columns,
+                [newSourceColumn.id]: newSourceColumn,
+                [newDestinationColumn.id]: newDestinationColumn,
+            },
+        }
+
+        // console.log('Nuevo estado:', newState)
+
+        setState(newState)
+    }
 }
 
 ReactDOM.render(<App />, document.getElementById('root'))
-
-function modifySameColumn({
-    destination,
-    source,
-    draggableId,
-    state,
-    setState,
-}) {
-    // Consigo la columna que esta 'sufriendo' las modificaciones
-    const columnModified = state.columns[source.droppableId]
-
-    // copio su array de tareas, asi no muto el original
-    const newTaskIdsArr = Array.from(columnModified.taskIds)
-
-    // Ya que lo tengo, entonces tengo que modificar 2 posiciones:
-    // 1. El origen
-    // 2. El destino
-
-    // console.log('array antes:', newTaskIdsArr)
-    newTaskIdsArr.splice(source.index, 1) // eliminar el index que se esta moviendo
-    // console.log('array durante:', newTaskIdsArr)
-    newTaskIdsArr.splice(destination.index, 0, draggableId) // reemplazarlo en el index que se esta moviendo
-    // console.log('array despues:', newTaskIdsArr, 'draggableId: ', draggableId)
-
-    // Bueno ya que movimos de lugar el objeto, lo que sigue es crear una nueva columna con las modificaciones
-    const newColumn = {
-        ...columnModified, // le copiamos todas las modificaciones y lo que ya tenia antes
-        taskIds: newTaskIdsArr, // le actualizamos el orden de las tareas, que fue lo que hicimos hace rato
-    }
-
-    // Ahora que ya tenemos la columna nueva, con las modificaciones adecuadas
-    // Pasamos a modificar el estado para que se mire reflejado
-    const newState = {
-        ...state, // Siempre conservar la informacion pasada
-        columns: {
-            ...state.columns, // conservamos el orden de las otras columnas
-            [newColumn.id]: newColumn, // y agregamos lo nuevo
-        },
-    }
-
-    setState(newState) //actualizamos el estado para que el usuario pueda ver la modificacion
-}
-
-function modifyTwoColumns({ destination, source, state, setState }) {
-    // console.log('Estado anterior: ', state)
-
-    // console.log('Esta condicion sucede porque ahora me estoy moviendo entre columnas')
-
-    const sourceColumn = state.columns[source.droppableId]
-    const destinationColumn = state.columns[destination.droppableId]
-
-    // console.log(sourceColumn, destinationColumn)
-
-    // Voy a crear una nueva lista para poder modificar la columna del origen
-
-    const editArraySourceColumn = Array.from(sourceColumn.taskIds)
-    const elementToInsert = editArraySourceColumn.splice(source.index, 1)[0]
-
-    const editArrayDestinationColumn = Array.from(destinationColumn.taskIds)
-    editArrayDestinationColumn.splice(destination.index, 0, elementToInsert)
-
-    // Ya que hice toda la gestion, ahora ocupo copiar las modificaciones y actualizar el estado
-
-    const newSourceColumn = {
-        ...sourceColumn,
-        taskIds: editArraySourceColumn,
-    }
-
-    const newDestinationColumn = {
-        ...destinationColumn,
-        taskIds: editArrayDestinationColumn,
-    }
-
-    // console.log('Nuevas estructuras:', newSourceColumn, newDestinationColumn)
-
-    const newState = {
-        ...state,
-        columns: {
-            ...state.columns,
-            [newSourceColumn.id]: newSourceColumn,
-            [newDestinationColumn.id]: newDestinationColumn,
-        },
-    }
-
-    // console.log('Nuevo estado:', newState)
-
-    setState(newState)
-}
 
 // Bueno ahora si vamos con la parte de react-beautiful-dnd
 // ahorita vamos a hacer que el orden de las tareas sea dinamico, es decir, que se pueda cambiar el orden de las tareas
