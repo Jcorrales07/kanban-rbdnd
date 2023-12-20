@@ -23,7 +23,7 @@ const CreateColumn = styled.div`
     margin: 8px;
     border: 1px solid lightgrey;
     border-radius: 4px;
-    // width: 220px;
+    min-width: 220px;
     height: 100%;
     padding: 8px;
     display: flex;
